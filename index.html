@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes Manifest Security Scanner</title>
+<style>
+:root {
+  --bg: #0a1628;
+  --surface: #112236;
+  --surface-2: #1a3050;
+  --border: #2a4060;
+  --text: #d8e3f0;
+  --text-dim: #7a90b0;
+  --k8s: #326ce5;
+  --k8s-bright: #4a8aff;
+  --accent: #326ce5;
+  --crit: #ff4757;
+  --high: #ffa502;
+  --med: #ffdd59;
+  --low: #7bed9f;
+  --info: #70a1ff;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="light"] {
+  --bg: #f0f4f9;
+  --surface: #ffffff;
+  --surface-2: #e8eef5;
+  --border: #c5d2e0;
+  --text: #1a2940;
+  --text-dim: #4a5a75;
+  --k8s: #1f5fcf;
+  --k8s-bright: #1f5fcf;
+  --accent: #1f5fcf;
+  --crit: #c0392b;
+  --high: #d68910;
+  --med: #b7950b;
+  --low: #1e8449;
+  --info: #1f5fcf;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; padding: 24px; }
+header { display: flex; justify-content: space-between; align-items: flex-start; max-width: 1300px; margin: 0 auto 24px; gap: 16px; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.subtitle { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+.theme-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: var(--mono); }
+.theme-btn:hover { border-color: var(--k8s); }
+main { max-width: 1300px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 10px; }
+textarea { width: 100%; min-height: 380px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 10px; font-family: var(--mono); font-size: 12px; line-height: 1.5; resize: vertical; }
+textarea:focus { outline: none; border-color: var(--k8s); }
+.actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+button { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: var(--mono); }
+button:hover { border-color: var(--k8s); }
+button.primary { background: var(--k8s); color: #ffffff; border-color: var(--k8s); font-weight: 600; }
+button.primary:hover { filter: brightness(1.1); }
+.results { min-height: 380px; max-height: 620px; overflow-y: auto; }
+.results-empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 60px 0; }
+.summary { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.tag { font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.tag.crit { background: rgba(255, 71, 87, 0.15); color: var(--crit); }
+.tag.high { background: rgba(255, 165, 2, 0.15); color: var(--high); }
+.tag.med { background: rgba(255, 221, 89, 0.15); color: var(--med); }
+.tag.low { background: rgba(123, 237, 159, 0.15); color: var(--low); }
+.tag.info { background: rgba(112, 161, 255, 0.15); color: var(--info); }
+.tag.pss-r { background: rgba(255, 71, 87, 0.15); color: var(--crit); }
+.tag.pss-b { background: rgba(255, 165, 2, 0.15); color: var(--high); }
+.tag.pss-p { background: rgba(123, 237, 159, 0.15); color: var(--low); }
+.finding { border-left: 3px solid var(--border); padding: 10px 12px; margin-bottom: 8px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+.finding.crit { border-left-color: var(--crit); }
+.finding.high { border-left-color: var(--high); }
+.finding.med { border-left-color: var(--med); }
+.finding.low { border-left-color: var(--low); }
+.finding.info { border-left-color: var(--info); }
+.finding-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.finding-title { font-weight: 600; font-size: 13px; }
+.finding-resource { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+.finding-detail { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.finding-fix { font-size: 12px; color: var(--text); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); white-space: pre-wrap; font-family: var(--mono); font-size: 11px; }
+.finding-fix strong { color: var(--k8s-bright); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--sans); display: block; margin-bottom: 4px; }
+[data-theme="light"] .finding-fix strong { color: var(--k8s); }
+footer { max-width: 1300px; margin: 24px auto 0; text-align: center; font-size: 11px; color: var(--text-dim); }
+.error-box { background: rgba(255, 71, 87, 0.08); border: 1px solid var(--crit); color: var(--crit); padding: 10px 12px; border-radius: 4px; font-size: 12px; font-family: var(--mono); margin-bottom: 12px; }
+.pss-bar { display: flex; gap: 8px; margin-bottom: 12px; padding: 10px; background: var(--surface-2); border-radius: 4px; font-size: 11px; }
+.pss-bar-item { font-family: var(--mono); }
+.pss-label { color: var(--text-dim); margin-right: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Kubernetes Manifest Security Scanner</h1>
+    <div class="subtitle">Pod / Deployment / DaemonSet / StatefulSet YAML — privileged, hostNet, capabilities, securityContext, PSS compliance.</div>
+  </div>
+  <button class="theme-btn" id="theme-btn">light</button>
+</header>
+<main>
+  <section class="panel">
+    <h2>Manifest YAML</h2>
+    <textarea id="input" placeholder="Paste a Pod, Deployment, DaemonSet, StatefulSet, or Job YAML. Multiple documents (---) supported."></textarea>
+    <div class="actions">
+      <button class="primary" id="analyze">Scan</button>
+      <button id="sample-1">Sample: privileged pod</button>
+      <button id="sample-2">Sample: missing context</button>
+      <button id="sample-3">Sample: hardened</button>
+      <button id="clear">Clear</button>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Findings</h2>
+    <div id="results" class="results">
+      <div class="results-empty">Paste manifest and click Scan.</div>
+    </div>
+  </section>
+</main>
+<footer>Static analysis. Pod Security Standards alignment. No data leaves the browser.</footer>
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+  const themeBtn = $('theme-btn');
+  themeBtn.addEventListener('click', () => {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    themeBtn.textContent = t === 'dark' ? 'light' : 'dark';
+  });
+
+  const SAMPLES = {
+    1: `apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: default
+spec:
+  hostNetwork: true
+  hostPID: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      privileged: true
+      runAsUser: 0
+      capabilities:
+        add: ["SYS_ADMIN", "NET_ADMIN"]
+    volumeMounts:
+    - name: host-root
+      mountPath: /host
+  volumes:
+  - name: host-root
+    hostPath:
+      path: /
+`,
+    2: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: myorg/api:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DATABASE_URL
+          value: "postgres://admin:hunter2@db/app"
+`,
+    3: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: api
+        image: myorg/api@sha256:abc123
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+`
+  };
+
+  $('sample-1').addEventListener('click', () => $('input').value = SAMPLES[1]);
+  $('sample-2').addEventListener('click', () => $('input').value = SAMPLES[2]);
+  $('sample-3').addEventListener('click', () => $('input').value = SAMPLES[3]);
+  $('clear').addEventListener('click', () => { $('input').value = ''; $('results').innerHTML = '<div class="results-empty">Paste manifest and click Scan.</div>'; });
+  $('analyze').addEventListener('click', analyze);
+
+  function indent(line) { return line.match(/^( *)/)[1].length; }
+
+  // simple YAML-ish parser for the subset we need (security-relevant fields).
+  // We don't ship a full YAML parser; we pattern-match on indentation/keys.
+  function getValue(yaml, key, contextIndent = -1) {
+    const lines = yaml.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^(\s*)([\w-]+):\s*(.*)$/);
+      if (m && m[2] === key && (contextIndent === -1 || indent(lines[i]) > contextIndent)) {
+        return m[3].trim();
+      }
+    }
+    return null;
+  }
+
+  function getBlock(yaml, key) {
+    const lines = yaml.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^(\s*)([\w-]+):\s*$/);
+      if (m && m[2] === key) {
+        const ind = m[1].length;
+        const out = [];
+        for (let j = i + 1; j < lines.length; j++) {
+          if (lines[j].trim() === '') { out.push(lines[j]); continue; }
+          if (indent(lines[j]) <= ind) break;
+          out.push(lines[j]);
+        }
+        return out.join('\n');
+      }
+    }
+    return null;
+  }
+
+  function getContainers(spec) {
+    const containers = [];
+    const cBlock = getBlock(spec, 'containers');
+    if (!cBlock) return containers;
+    const items = cBlock.split(/^(\s*)- /m).filter(Boolean);
+    let cur = null;
+    cBlock.split('\n').forEach(line => {
+      if (/^\s*-\s+\w/.test(line)) {
+        if (cur) containers.push(cur);
+        cur = line.replace(/^\s*-\s*/, '') + '\n';
+      } else if (cur !== null) {
+        cur += line.replace(/^  /, '') + '\n';
+      }
+    });
+    if (cur) containers.push(cur);
+    return containers;
+  }
+
+  function analyze() {
+    const raw = $('input').value.trim();
+    if (!raw) {
+      $('results').innerHTML = '<div class="results-empty">No manifest provided.</div>';
+      return;
+    }
+    const docs = raw.split(/^---\s*$/m).map(d => d.trim()).filter(Boolean);
+    const findings = [];
+    let pssLevel = 'restricted';
+    let totalContainers = 0;
+    docs.forEach(doc => {
+      const kind = (getValue(doc, 'kind') || '').replace(/['"]/g, '');
+      const name = (getValue(doc, 'name') || 'unnamed').replace(/['"]/g, '');
+      if (!['Pod','Deployment','DaemonSet','StatefulSet','Job','CronJob','ReplicaSet'].includes(kind)) {
+        return;
+      }
+      let podSpec;
+      if (kind === 'Pod') podSpec = getBlock(doc, 'spec') || '';
+      else if (kind === 'CronJob') {
+        const top = getBlock(doc, 'spec') || '';
+        const jt = getBlock(top, 'jobTemplate') || '';
+        const jspec = getBlock(jt, 'spec') || '';
+        const tmpl = getBlock(jspec, 'template') || '';
+        podSpec = getBlock(tmpl, 'spec') || '';
+      } else {
+        const top = getBlock(doc, 'spec') || '';
+        const tmpl = getBlock(top, 'template') || '';
+        podSpec = getBlock(tmpl, 'spec') || '';
+      }
+      if (!podSpec) {
+        findings.push({ sev: 'info', title: kind + '/' + name + ': no spec found', detail: 'Could not extract pod spec.', fix: '' });
+        return;
+      }
+      const ctx = kind + '/' + name;
+      const podLevelFindings = checkPodSpec(podSpec, ctx);
+      podLevelFindings.forEach(f => findings.push(f));
+      const containers = getContainers(podSpec);
+      totalContainers += containers.length;
+      containers.forEach(c => {
+        const cName = (getValue(c, 'name') || 'unnamed').replace(/['"]/g, '');
+        const cFindings = checkContainer(c, ctx + '/' + cName);
+        cFindings.forEach(f => {
+          findings.push(f);
+          if (f.pss === 'restricted') pssLevel = downgrade(pssLevel, 'baseline');
+          if (f.pss === 'baseline') pssLevel = downgrade(pssLevel, 'privileged');
+        });
+      });
+    });
+    if (!findings.length) {
+      findings.push({ sev: 'info', title: 'No issues found', detail: 'Static check found no flagged constructs across ' + docs.length + ' document(s).', fix: '' });
+    }
+    render(findings, pssLevel, totalContainers);
+  }
+
+  function downgrade(cur, lvl) {
+    const order = ['privileged','baseline','restricted'];
+    return order[Math.min(order.indexOf(cur), order.indexOf(lvl))];
+  }
+
+  function checkPodSpec(spec, ctx) {
+    const f = [];
+    if (/hostNetwork:\s*true/.test(spec)) f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': hostNetwork: true', detail: 'Pod shares host network namespace. Listens on host ports, sees all host traffic, can ARP-poison the node.', fix: 'Remove hostNetwork or set to false. If genuinely required (CNI plugin, ingress controller), document and isolate via NetworkPolicy.' });
+    if (/hostPID:\s*true/.test(spec)) f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': hostPID: true', detail: 'Pod sees host process tree. Can read /proc/<pid>/environ from host processes (credentials, secrets).', fix: 'Set hostPID: false.' });
+    if (/hostIPC:\s*true/.test(spec)) f.push({ ctx, sev: 'high', pss: 'baseline', title: ctx + ': hostIPC: true', detail: 'Pod shares host IPC namespace. Can read shared memory of other processes.', fix: 'Set hostIPC: false.' });
+    const hostPath = (spec.match(/hostPath:[\s\S]*?path:\s*([^\s]+)/g) || []);
+    hostPath.forEach(hp => {
+      const m = hp.match(/path:\s*([^\s]+)/);
+      const path = m ? m[1].replace(/['"]/g, '') : '?';
+      const dangerous = ['/','/etc','/var','/var/run','/var/run/docker.sock','/proc','/sys','/dev','/root','/home','/usr','/var/lib/kubelet','/var/lib/docker'];
+      if (dangerous.some(d => path === d || path.startsWith(d + '/'))) {
+        f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': dangerous hostPath ' + path, detail: 'Mount of ' + path + ' from host. Container escape, host file modification, or socket abuse possible.', fix: 'Remove the hostPath mount. If genuinely needed (logging, monitoring), use a CSI volume or scope to a specific subdirectory and consider readOnly: true.' });
+      } else {
+        f.push({ ctx, sev: 'med', pss: 'baseline', title: ctx + ': hostPath mount ' + path, detail: 'Any hostPath couples the pod to node filesystem layout and creates a node-level dependency.', fix: 'Prefer ConfigMap, Secret, emptyDir, or a CSI volume.' });
+      }
+    });
+    if (!/automountServiceAccountToken:\s*false/.test(spec) && !/serviceAccountName:/.test(spec)) {
+      f.push({ ctx, sev: 'med', pss: 'baseline', title: ctx + ': default ServiceAccount token mounted', detail: 'No automountServiceAccountToken: false. Default SA token is mounted; if that SA has any RBAC binding, anyone in the container has API access.', fix: 'Set automountServiceAccountToken: false at pod or SA level. If API access needed, create a dedicated SA with minimum RBAC.' });
+    }
+    const podSC = getBlock(spec, 'securityContext') || '';
+    if (!/runAsNonRoot:\s*true/.test(podSC) && !/runAsNonRoot:\s*true/.test(spec)) {
+      f.push({ ctx, sev: 'high', pss: 'restricted', title: ctx + ': runAsNonRoot not enforced', detail: 'Without runAsNonRoot: true at pod or container level, image USER is honored — many images run as root.', fix: 'Add to spec.securityContext:\n  runAsNonRoot: true\n  runAsUser: 10001' });
+    }
+    if (!/seccompProfile:/.test(spec)) {
+      f.push({ ctx, sev: 'med', pss: 'restricted', title: ctx + ': no seccompProfile', detail: 'Without seccomp, container has access to all syscalls. RuntimeDefault blocks dangerous ones.', fix: 'Add to spec.securityContext:\n  seccompProfile:\n    type: RuntimeDefault' });
+    }
+    return f;
+  }
+
+  function checkContainer(c, ctx) {
+    const f = [];
+    const sc = getBlock(c, 'securityContext') || '';
+    const image = (getValue(c, 'image') || '').replace(/['"]/g, '');
+    if (/privileged:\s*true/.test(sc)) f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': privileged: true', detail: 'Disables all container isolation. Equivalent to root on the host. Can mount host filesystems, load kernel modules, escape trivially.', fix: 'Remove privileged: true. If a specific capability is needed, add only that capability via capabilities.add.' });
+    if (/allowPrivilegeEscalation:\s*true/.test(sc) || (!/allowPrivilegeEscalation:\s*false/.test(sc))) {
+      f.push({ ctx, sev: 'med', pss: 'restricted', title: ctx + ': allowPrivilegeEscalation not set to false', detail: 'Default allows setuid binaries to gain privileges. Restricted PSS requires explicit false.', fix: 'Add to securityContext:\n  allowPrivilegeEscalation: false' });
+    }
+    if (/runAsUser:\s*0\b/.test(sc)) f.push({ ctx, sev: 'high', pss: 'restricted', title: ctx + ': runAsUser: 0 (root)', detail: 'Container runs as root inside namespace.', fix: 'Set a non-zero UID, e.g. runAsUser: 10001.' });
+    if (!/readOnlyRootFilesystem:\s*true/.test(sc)) f.push({ ctx, sev: 'low', pss: 'restricted', title: ctx + ': readOnlyRootFilesystem not set', detail: 'A writable root filesystem makes runtime tampering and dropped binaries trivial. Use emptyDir for legitimate writable paths.', fix: 'Set readOnlyRootFilesystem: true and mount emptyDir for /tmp etc.' });
+    const capsBlock = getBlock(sc, 'capabilities') || '';
+    const caps = (capsBlock.match(/-\s*"?([A-Z_]+)"?/g) || []).map(s => s.replace(/-\s*"?/, '').replace(/"?$/, ''));
+    const dangerous = ['SYS_ADMIN','NET_ADMIN','NET_RAW','SYS_PTRACE','SYS_MODULE','DAC_READ_SEARCH','DAC_OVERRIDE','SETUID','SETGID','SYS_BOOT','SYS_TIME','MKNOD','AUDIT_WRITE'];
+    caps.forEach(cap => {
+      if (capsBlock.indexOf('add:') < capsBlock.indexOf(cap) && capsBlock.indexOf('add:') !== -1) {
+        if (dangerous.includes(cap)) f.push({ ctx, sev: 'high', pss: 'restricted', title: ctx + ': capability ' + cap + ' added', detail: capInfo(cap), fix: 'Remove this capability unless absolutely required. Drop ALL and add only what is needed.' });
+      }
+    });
+    if (!/drop:/.test(capsBlock) || !/-\s*"?ALL"?/i.test(capsBlock)) {
+      f.push({ ctx, sev: 'med', pss: 'restricted', title: ctx + ': capabilities not dropped', detail: 'Restricted PSS requires drop: [ALL] then explicit add of only required capabilities.', fix: 'capabilities:\n  drop: ["ALL"]\n  add: []' });
+    }
+    if (image.endsWith(':latest') || (!image.includes(':') && !image.includes('@'))) {
+      f.push({ ctx, sev: 'med', pss: 'baseline', title: ctx + ': image uses :latest or no tag', detail: 'Tag :latest is mutable. Reproducibility, rollback, and admission policy enforcement all break.', fix: 'Pin to an immutable tag or, better, image digest: image: myorg/api@sha256:abc123...' });
+    }
+    if (!image.includes('@sha256:')) {
+      f.push({ ctx, sev: 'low', pss: 'baseline', title: ctx + ': image not pinned by digest', detail: 'Tags can be moved. Pinning by digest gives supply-chain immutability.', fix: 'Use image: myorg/api@sha256:<digest>. Combine with imagePullPolicy: Always.' });
+    }
+    const resources = getBlock(c, 'resources') || '';
+    if (!/limits:/.test(resources) || !/memory:/.test(resources)) {
+      f.push({ ctx, sev: 'low', pss: 'baseline', title: ctx + ': memory limit not set', detail: 'No resources.limits.memory. Pod can OOM the node.', fix: 'resources:\n  limits:\n    memory: 512Mi\n    cpu: 500m\n  requests:\n    memory: 128Mi\n    cpu: 100m' });
+    }
+    const env = getBlock(c, 'env') || '';
+    const envValues = env.match(/value:\s*["']?([^"'\n]+)["']?/g) || [];
+    envValues.forEach(ev => {
+      const m = ev.match(/value:\s*["']?(.+?)["']?$/);
+      const v = m ? m[1].trim() : '';
+      if (/postgres:\/\/[^:]+:[^@]+@/.test(v) || /mysql:\/\/[^:]+:[^@]+@/.test(v) || /mongodb:\/\/[^:]+:[^@]+@/.test(v) || /redis:\/\/.*:[^@]+@/.test(v)) {
+        f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': connection string with embedded password in env', detail: 'env value contains a password.', fix: 'Use envFrom with a Secret reference, or env.valueFrom.secretKeyRef. Rotate the leaked credential.' });
+      } else if (/(password|secret|token|api_?key)/i.test(ev) && /value:\s*["']?\S{6,}/.test(ev) && !/value:\s*["']?\$\{/.test(ev)) {
+        f.push({ ctx, sev: 'crit', pss: 'baseline', title: ctx + ': env var name suggests secret with literal value', detail: ev.split(':')[0] + ' has a literal value.', fix: 'Use env.valueFrom.secretKeyRef. Rotate the leaked credential.' });
+      }
+    });
+    return f;
+  }
+
+  function capInfo(cap) {
+    return ({
+      'SYS_ADMIN': 'CAP_SYS_ADMIN — broadest capability. Mount filesystems, manipulate namespaces, near-root power.',
+      'NET_ADMIN': 'CAP_NET_ADMIN — modify network configuration, routing, firewalls.',
+      'NET_RAW': 'CAP_NET_RAW — raw sockets. Enables ARP/network spoofing.',
+      'SYS_PTRACE': 'CAP_SYS_PTRACE — attach to other processes; reads memory, secrets.',
+      'SYS_MODULE': 'CAP_SYS_MODULE — load kernel modules. Container escape.',
+      'DAC_READ_SEARCH': 'CAP_DAC_READ_SEARCH — bypass file read permissions.',
+      'DAC_OVERRIDE': 'CAP_DAC_OVERRIDE — bypass file permission checks.',
+      'SETUID': 'CAP_SETUID — change UID. Privilege escalation primitive.',
+      'SETGID': 'CAP_SETGID — change GID.',
+      'SYS_BOOT': 'CAP_SYS_BOOT — reboot the system.',
+      'SYS_TIME': 'CAP_SYS_TIME — change system clock.',
+      'MKNOD': 'CAP_MKNOD — create device files.',
+      'AUDIT_WRITE': 'CAP_AUDIT_WRITE — write to audit log; can mask malicious activity.'
+    })[cap] || ('Linux capability ' + cap + ' adds privilege beyond default container set.');
+  }
+
+  function render(findings, pssLevel, containers) {
+    const r = $('results');
+    const counts = { crit: 0, high: 0, med: 0, low: 0, info: 0 };
+    findings.forEach(f => counts[f.sev] = (counts[f.sev] || 0) + 1);
+    let html = '<div class="pss-bar">';
+    html += '<span class="pss-bar-item"><span class="pss-label">PSS:</span><span class="tag pss-' + (pssLevel === 'restricted' ? 'p' : pssLevel === 'baseline' ? 'b' : 'r') + '">' + pssLevel + '</span></span>';
+    html += '<span class="pss-bar-item"><span class="pss-label">Containers:</span>' + containers + '</span>';
+    html += '</div>';
+    html += '<div class="summary">';
+    ['crit','high','med','low','info'].forEach(k => {
+      if (counts[k]) html += '<span class="tag ' + k + '">' + counts[k] + ' ' + k + '</span>';
+    });
+    html += '</div>';
+    findings.forEach(f => {
+      html += '<div class="finding ' + f.sev + '">';
+      html += '<div class="finding-head"><span class="finding-title">' + escapeHtml(f.title) + '</span><span class="tag ' + f.sev + '">' + f.sev + '</span></div>';
+      html += '<div class="finding-detail">' + escapeHtml(f.detail) + '</div>';
+      if (f.fix) html += '<div class="finding-fix"><strong>Fix</strong>' + escapeHtml(f.fix) + '</div>';
+      html += '</div>';
+    });
+    r.innerHTML = html;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+})();
+</script>
+</body>
+</html>

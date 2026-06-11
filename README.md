@@ -2,19 +2,21 @@
 
 Browser-based scanner for Kubernetes manifests. Paste a YAML file (Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob), get findings against the Pod Security Standards plus common hardening rules.
 
+**Live demo:** https://0xelitesystem.github.io/kubernetes-manifest-security-scanner/
+
 Single HTML file. No build step, no dependencies, no network calls.
 
 ## What it checks
 
-- **Pod Security Standards** — flags violations of the Restricted profile: privileged containers, host namespaces (`hostNetwork`, `hostPID`, `hostIPC`), `allowPrivilegeEscalation`, root user (`runAsUser: 0` or unset), unmasked `/proc`, host path mounts, sysctls outside the allowed list.
-- **Capabilities** — added Linux capabilities (especially `SYS_ADMIN`, `NET_ADMIN`, `SYS_PTRACE`, `NET_RAW`) and missing `drop: [ALL]`.
-- **Resource limits** — missing CPU/memory `requests` or `limits`, ratio between request and limit when both are set.
-- **Image hygiene** — `:latest` tag, no tag at all, image pull policy `Always` for non-development workloads, images from public registries without a digest.
-- **Probes** — missing `livenessProbe` and `readinessProbe` on long-running workloads.
-- **Secrets and config** — secrets passed as environment variables instead of mounted, sensitive values in ConfigMaps.
-- **Service account** — `automountServiceAccountToken: true` (default) on workloads that don't need API access, `default` service account in use.
-- **NetworkPolicy** — flagged if a Deployment is in a namespace with no NetworkPolicy detected in the pasted input (informational; cluster state isn't visible).
-- **Read-only root filesystem** — `readOnlyRootFilesystem: false` or unset.
+- **Pod Security Standards**, flags violations of the Restricted profile: privileged containers, host namespaces (`hostNetwork`, `hostPID`, `hostIPC`), `allowPrivilegeEscalation`, root user (`runAsUser: 0` or unset), unmasked `/proc`, host path mounts, sysctls outside the allowed list.
+- **Capabilities**, added Linux capabilities (especially `SYS_ADMIN`, `NET_ADMIN`, `SYS_PTRACE`, `NET_RAW`) and missing `drop: [ALL]`.
+- **Resource limits**, missing CPU/memory `requests` or `limits`, ratio between request and limit when both are set.
+- **Image hygiene**, `:latest` tag, no tag at all, image pull policy `Always` for non-development workloads, images from public registries without a digest.
+- **Probes**, missing `livenessProbe` and `readinessProbe` on long-running workloads.
+- **Secrets and config**, secrets passed as environment variables instead of mounted, sensitive values in ConfigMaps.
+- **Service account**, `automountServiceAccountToken: true` (default) on workloads that don't need API access, `default` service account in use.
+- **NetworkPolicy**, flagged if a Deployment is in a namespace with no NetworkPolicy detected in the pasted input (informational; cluster state isn't visible).
+- **Read-only root filesystem**, `readOnlyRootFilesystem: false` or unset.
 
 ## Severity scale
 

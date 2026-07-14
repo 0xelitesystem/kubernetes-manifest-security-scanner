@@ -95,7 +95,7 @@ footer { max-width: 1300px; margin: 24px auto 0; text-align: center; font-size: 
 <header>
   <div>
     <h1>Kubernetes Manifest Security Scanner</h1>
-    <div class="subtitle">Pod / Deployment / DaemonSet / StatefulSet YAML — privileged, hostNet, capabilities, securityContext, PSS compliance.</div>
+    <div class="subtitle">Pod / Deployment / DaemonSet / StatefulSet YAML, privileged, hostNet, capabilities, securityContext, PSS compliance.</div>
   </div>
   <button class="theme-btn" id="theme-btn">light</button>
 </header>
@@ -362,7 +362,7 @@ spec:
     }
     const podSC = getBlock(spec, 'securityContext') || '';
     if (!/runAsNonRoot:\s*true/.test(podSC) && !/runAsNonRoot:\s*true/.test(spec)) {
-      f.push({ ctx, sev: 'high', pss: 'restricted', title: ctx + ': runAsNonRoot not enforced', detail: 'Without runAsNonRoot: true at pod or container level, image USER is honored — many images run as root.', fix: 'Add to spec.securityContext:\n  runAsNonRoot: true\n  runAsUser: 10001' });
+      f.push({ ctx, sev: 'high', pss: 'restricted', title: ctx + ': runAsNonRoot not enforced', detail: 'Without runAsNonRoot: true at pod or container level, image USER is honored, many images run as root.', fix: 'Add to spec.securityContext:\n  runAsNonRoot: true\n  runAsUser: 10001' });
     }
     if (!/seccompProfile:/.test(spec)) {
       f.push({ ctx, sev: 'med', pss: 'restricted', title: ctx + ': no seccompProfile', detail: 'Without seccomp, container has access to all syscalls. RuntimeDefault blocks dangerous ones.', fix: 'Add to spec.securityContext:\n  seccompProfile:\n    type: RuntimeDefault' });
@@ -417,19 +417,19 @@ spec:
 
   function capInfo(cap) {
     return ({
-      'SYS_ADMIN': 'CAP_SYS_ADMIN — broadest capability. Mount filesystems, manipulate namespaces, near-root power.',
-      'NET_ADMIN': 'CAP_NET_ADMIN — modify network configuration, routing, firewalls.',
-      'NET_RAW': 'CAP_NET_RAW — raw sockets. Enables ARP/network spoofing.',
-      'SYS_PTRACE': 'CAP_SYS_PTRACE — attach to other processes; reads memory, secrets.',
-      'SYS_MODULE': 'CAP_SYS_MODULE — load kernel modules. Container escape.',
-      'DAC_READ_SEARCH': 'CAP_DAC_READ_SEARCH — bypass file read permissions.',
-      'DAC_OVERRIDE': 'CAP_DAC_OVERRIDE — bypass file permission checks.',
-      'SETUID': 'CAP_SETUID — change UID. Privilege escalation primitive.',
-      'SETGID': 'CAP_SETGID — change GID.',
-      'SYS_BOOT': 'CAP_SYS_BOOT — reboot the system.',
-      'SYS_TIME': 'CAP_SYS_TIME — change system clock.',
-      'MKNOD': 'CAP_MKNOD — create device files.',
-      'AUDIT_WRITE': 'CAP_AUDIT_WRITE — write to audit log; can mask malicious activity.'
+      'SYS_ADMIN': 'CAP_SYS_ADMIN, broadest capability. Mount filesystems, manipulate namespaces, near-root power.',
+      'NET_ADMIN': 'CAP_NET_ADMIN, modify network configuration, routing, firewalls.',
+      'NET_RAW': 'CAP_NET_RAW, raw sockets. Enables ARP/network spoofing.',
+      'SYS_PTRACE': 'CAP_SYS_PTRACE, attach to other processes; reads memory, secrets.',
+      'SYS_MODULE': 'CAP_SYS_MODULE, load kernel modules. Container escape.',
+      'DAC_READ_SEARCH': 'CAP_DAC_READ_SEARCH, bypass file read permissions.',
+      'DAC_OVERRIDE': 'CAP_DAC_OVERRIDE, bypass file permission checks.',
+      'SETUID': 'CAP_SETUID, change UID. Privilege escalation primitive.',
+      'SETGID': 'CAP_SETGID, change GID.',
+      'SYS_BOOT': 'CAP_SYS_BOOT, reboot the system.',
+      'SYS_TIME': 'CAP_SYS_TIME, change system clock.',
+      'MKNOD': 'CAP_MKNOD, create device files.',
+      'AUDIT_WRITE': 'CAP_AUDIT_WRITE, write to audit log; can mask malicious activity.'
     })[cap] || ('Linux capability ' + cap + ' adds privilege beyond default container set.');
   }
 

@@ -6,6 +6,17 @@ Browser-based scanner for Kubernetes manifests. Paste a YAML file (Pod, Deployme
 
 Single HTML file. No build step, no dependencies, no network calls.
 
+## Use
+
+1. Paste a manifest (Pod, Deployment, StatefulSet, DaemonSet, Job or CronJob) into the editor, or load one of the sample buttons.
+2. Click Scan.
+3. Read the findings, each tagged critical, high, medium, low or info.
+4. Fix the manifest and scan again.
+
+## Why this exists
+
+Manifests often name internal images, registries and secrets, so a quick review should not mean uploading them to a hosted scanner. This is one HTML file with no tracking and no network calls that checks pasted YAML against Pod Security Standards and common hardening rules in your browser, MIT licensed.
+
 ## What it checks
 
 - **Pod Security Standards**, flags violations of the Restricted profile: privileged containers, host namespaces (`hostNetwork`, `hostPID`, `hostIPC`), `allowPrivilegeEscalation`, root user (`runAsUser: 0` or unset), unmasked `/proc`, host path mounts, sysctls outside the allowed list.
@@ -34,7 +45,20 @@ Not a replacement for `kube-bench`, `kubescape`, `polaris`, or admission control
 
 ## Privacy
 
-The YAML you paste stays in the browser. No analytics, no storage, no network requests after page load.
+The YAML you paste stays in the browser. No analytics, no storage, no network requests after page load. The one exception to "no storage": the light or dark theme toggle saves your choice in `localStorage` under the key `theme`. Your YAML is never stored.
+
+## Run locally
+
+```
+git clone https://github.com/0xelitesystem/kubernetes-manifest-security-scanner
+cd kubernetes-manifest-security-scanner
+```
+
+Open `index.html` in any modern browser. Or serve the folder with `python -m http.server` and visit http://localhost:8000.
+
+## Build
+
+No build step. The whole tool is one `index.html` with inline CSS and JavaScript and no dependencies.
 
 ## Samples
 

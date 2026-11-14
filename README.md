@@ -70,7 +70,7 @@ Part of a 10-repo security audit set.
 
 Browser-based audit tools:
 - [iam-policy-analyzer](https://github.com/0xelitesystem/iam-policy-analyzer)
-- [terraform-security-linter](https://github.com/0xelitesystem/terraform-security-linter)
+- [hcl-aws-misconfig-linter](https://github.com/0xelitesystem/hcl-aws-misconfig-linter)
 - [session-cookie-auditor](https://github.com/0xelitesystem/session-cookie-auditor)
 - [regex-redos-checker](https://github.com/0xelitesystem/regex-redos-checker)
 

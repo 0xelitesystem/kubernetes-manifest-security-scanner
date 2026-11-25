@@ -69,10 +69,10 @@ Three samples are wired to header buttons: a privileged Pod, a Deployment missin
 Part of a 10-repo security audit set.
 
 Browser-based audit tools:
-- [iam-policy-analyzer](https://github.com/0xelitesystem/iam-policy-analyzer)
+- [iam-policy-risk-flagger](https://github.com/0xelitesystem/iam-policy-risk-flagger)
 - [hcl-aws-misconfig-linter](https://github.com/0xelitesystem/hcl-aws-misconfig-linter)
 - [session-cookie-auditor](https://github.com/0xelitesystem/session-cookie-auditor)
-- [regex-redos-checker](https://github.com/0xelitesystem/regex-redos-checker)
+- [redos-evil-input-finder](https://github.com/0xelitesystem/redos-evil-input-finder)
 
 Reference collections:
 - [incident-response-runbooks](https://github.com/0xelitesystem/incident-response-runbooks)
